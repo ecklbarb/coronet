@@ -685,7 +685,7 @@ NetworkConf = R6::R6Class("NetworkConf", inherit = Conf,
             author.relation = list(
                 default = "mail",
                 type = "character",
-                allowed = c("mail", "cochange", "issue"),
+                allowed = c("mail", "cochange", "issue", "talk", "chat","direct.mail"),
                 allowed.number = Inf
             ),
             author.directed = list(
@@ -716,7 +716,7 @@ NetworkConf = R6::R6Class("NetworkConf", inherit = Conf,
             artifact.relation = list(
                 default = "cochange",
                 type = "character",
-                allowed = c("cochange", "callgraph", "mail", "issue"),
+                allowed = c("cochange", "callgraph", "mail", "issue", "talk", "chat", "direct.mail"),
                 allowed.number = Inf
             ),
             artifact.directed = list(
@@ -734,9 +734,10 @@ NetworkConf = R6::R6Class("NetworkConf", inherit = Conf,
             edge.attributes = list(
                 default = c(
                     "date", "artifact.type", # general
-                    "message.id", "thread", # mail data
+                    "message.id", "thread", # mail data, direct mail data
                     "hash", "file", "artifact", # commit data
-                    "issue.id", "event.name" # issue data
+                    "issue.id", "event.name", # issue data
+                    "talk.id", "thread" # talk data
                 ),
                 type = "character",
                 allowed = c(
@@ -757,7 +758,9 @@ NetworkConf = R6::R6Class("NetworkConf", inherit = Conf,
                     "pasta",
                     # issue information
                     "issue.id", "issue.state", "creation.date", "closing.date", "is.pull.request",
-                    "author.name", "author.mail", "event.date", "event.name"
+                    "author.name", "author.mail", "event.date", "event.name",
+                    # talk information
+                    "duration", "subject", "additional.information"
                 ),
                 allowed.number = Inf
             ),

@@ -53,14 +53,20 @@ BASE.ARTIFACTS = c(
 DATASOURCE.TO.ARTIFACT.FUNCTION = list(
     "commits" = "get.commits.filtered",
     "mails"   = "get.mails",
-    "issues"  = "get.issues"
+    "issues"  = "get.issues",
+    "chats"  = "get.chats",
+    "talks"   = "get.talks",
+    "direct.mails"   = "get.direct.mails"
 )
 
 ## mapping of data source to artifact column
 DATASOURCE.TO.ARTIFACT.COLUMN = list(
     "commits" = "artifact",
     "mails"   = "thread",
-    "issues"  = "issue.id"
+    "issues"  = "issue.id",
+    "talks"   = "thread",
+    "chats"   = "thread",
+    "direct.mails"   = "thread"
 )
 
 
@@ -103,6 +109,12 @@ ProjectData = R6::R6Class("ProjectData",
         mails = NULL, # data.frame
         ## issues
         issues = NULL, #data.frame
+        ## talks
+        talks = NULL, #data.frame
+        ## chats
+        chats = NULL, #data.frame
+        ## direct mails
+        direct.mails = NULL, #data.frame
         ## authors
         authors = NULL, # data.frame
         ## additional data sources
@@ -278,6 +290,9 @@ ProjectData = R6::R6Class("ProjectData",
             private$commits = NULL
             private$mails = NULL
             private$issues = NULL
+            private$talks = NULL
+            private$chats = NULL
+            private$direct.mails = NULL
             private$authors = NULL
             private$synchronicity = NULL
             private$pasta = NULL
@@ -648,6 +663,120 @@ ProjectData = R6::R6Class("ProjectData",
             private$mails = data
         },
 
+        #' Get the talk data.
+        #' If it does not already exist call the read method.
+        #' Call the setter function to set the data and add PaStA
+        #' data if configured in the field \code{project.conf}.
+        #'
+        #' @return the talk data
+        get.talks = function() {
+            logging::loginfo("Getting talk data")
+
+            ## if talk have not been read yet do this
+            if (is.null(private$talks)) {
+                talks.read = read.talks(self$get.data.path())
+
+                self$set.talks(data = talks.read)
+            }
+            private$extract.timestamps(source = "talks")
+
+            return(private$talks)
+
+        },
+
+        #' Set the talk data to the given new data and add PaStA data
+        #' if configured in the field \code{project.conf}.
+        #'
+        #' @param data the new talk data
+        set.talks = function(data) {
+            logging::loginfo("Setting talk data.")
+
+            if (is.null(data)) {
+                data = create.empty.talks.list()
+            }
+
+            ## sort by date again (because 'merge' is doing bullshit!)
+            data = data[order(data[["date"]], decreasing = FALSE), ] # sort!
+
+            private$talks = data
+        },
+
+        #' Get the chat data.
+        #' If it does not already exist call the read method.
+        #' Call the setter function to set the data and add PaStA
+        #' data if configured in the field \code{project.conf}.
+        #'
+        #' @return the talk data
+        get.chats = function() {
+            logging::loginfo("Getting chat data")
+
+            ## if chat have not been read yet do this
+            if (is.null(private$chats)) {
+                chats.read = read.chats(self$get.data.path())
+
+                self$set.chats(data = chats.read)
+            }
+            private$extract.timestamps(source = "chats")
+
+            return(private$chats)
+
+        },
+
+        #' Set the chat data to the given new data and add PaStA data
+        #' if configured in the field \code{project.conf}.
+        #'
+        #' @param data the new talk data
+        set.chats = function(data) {
+            logging::loginfo("Setting chat data.")
+
+            if (is.null(data)) {
+                data = create.empty.chats.list()
+            }
+
+            ## sort by date again (because 'merge' is doing bullshit!)
+            data = data[order(data[["date"]], decreasing = FALSE), ] # sort!
+
+            private$chats = data
+        },
+
+        #' Get the direct mail data.
+        #' If it does not already exist call the read method.
+        #' Call the setter function to set the data and add PaStA
+        #' data if configured in the field \code{project.conf}.
+        #'
+        #' @return the direct mail data
+        get.direct.mails = function() {
+            logging::loginfo("Getting direct mail data")
+
+            ## if direct mail have not been read yet do this
+            if (is.null(private$direct.mail)) {
+                direct.mails.read = read.direct.mails(self$get.data.path())
+
+                self$set.direct.mails(data = direct.mails.read)
+            }
+            private$extract.timestamps(source = "direct.mails")
+
+            return(private$direct.mails)
+
+        },
+
+        #' Set the direct mail data to the given new data and add PaStA data
+        #' if configured in the field \code{project.conf}.
+        #'
+        #' @param data the new direct mail data
+        set.direct.mails = function(data) {
+            logging::loginfo("Setting direct mail data.")
+
+            if (is.null(data)) {
+                data = create.empty.direct.mails.list()
+            }
+
+            ## sort by date again (because 'merge' is doing bullshit!)
+            data = data[order(data[["date"]], decreasing = FALSE), ] # sort!
+
+            private$direct.mails = data
+        },
+
         #' Get the author data.
         #' If it does not already exist call the read method.
         #'
@@ -711,7 +840,7 @@ ProjectData = R6::R6Class("ProjectData",
         #'                    \code{"mails"}, and \code{"issues"}. [default: "commits"]
         #'
         #' @return the character vector of unique artifacts (can be empty)
-        get.artifacts = function(data.source = c("commits", "mails", "issues")) {
+        get.artifacts = function(data.source = c("commits", "mails", "issues", "talks",  "chat","direct.mails")) {
             logging::loginfo("Getting artifact data.")
 
             ## check given data source
@@ -777,7 +906,10 @@ ProjectData = R6::R6Class("ProjectData",
                 ## main data sources
                 "commits",
                 "mails",
+                "direct.mails",
                 "issues",
+                "talks",
+                "chats",
                 ## author data
                 "authors",
                 ## additional data sources
@@ -796,10 +928,12 @@ ProjectData = R6::R6Class("ProjectData",
         #' the given data source.
         #'
         #' @param data.source The specified data source. One of \code{"mails"},
-        #'                    \code{"commits"}, and \code{"issues"}. [default: "commits"]
+        #'                    \code{"commits"}, \code{"talks"}, and \code{"issues"}.
+        #'                    [default: "commits"]
         #'
         #' @return a named list of data classes, with the corresponding data columns as names
-        get.data.columns.for.data.source = function(data.source = c("commits", "mails", "issues")) {
+        get.data.columns.for.data.source = function(data.source = c("commits", "mails", "issues", "chats",
+                                                                    "talks", "direct.mails")) {
 
             ## check arguments
             data.source = match.arg(arg = data.source, several.ok = FALSE)
@@ -868,7 +1002,7 @@ ProjectData = R6::R6Class("ProjectData",
         #' If there are no data available for a data source, the result indicates NA.
         #'
         #' @param data.sources The specified data sources. One of \code{"mails"},
-        #'                     \code{"commits"}, and \code{"issues"}.
+        #'                     \code{"commits"}, \code{"talks"}, and \code{"issues"}.
         #' @param simple If TRUE, return the overall latest start and earliest end date
         #'               across all data sources in a one-row data.frame; otherwise, return
         #'               the first and last activities of all data sources individually.
@@ -879,7 +1013,7 @@ ProjectData = R6::R6Class("ProjectData",
         #'
         #' @return A data.frame with the timestamps of each data source as columns "start" and "end",
         #'         possibly with the data source as corresponding row name
-        get.data.timestamps = function(data.sources = c("mails", "commits", "issues"), simple = FALSE,
+        get.data.timestamps = function(data.sources = c("mails", "commits", "issues", "talks", "chats", "direct.mails"), simple = FALSE,
                                        outermost = FALSE) {
 
             ## check arguments
@@ -918,7 +1052,7 @@ ProjectData = R6::R6Class("ProjectData",
         #' @param data.sources the specified data sources
         #'
         #' @return the RangeData object with cut data sources
-        get.data.cut.to.same.date = function(data.sources = c("mails", "commits", "issues")) {
+        get.data.cut.to.same.date = function(data.sources = c("mails", "commits", "issues", "talks", "chats", "direct.mails")) {
             ## check arguments
             data.sources = match.arg(arg = data.sources, several.ok = TRUE)
 
@@ -946,7 +1080,7 @@ ProjectData = R6::R6Class("ProjectData",
         #' Example: To obtain the authors who touched the same source-code artifact,
         #' call \code{group.authors.by.data.column("commits", "artifact")}.
         #'
-        #' @param data.source The specified data source. One of \code{"commits"},
+        #' @param data.source The specified data source. One of \code{"commits"}, \code{"talks"},
         #'                    \code{"mails"}, and \code{"issues"}. [default: "commits"]
         #' @param group.column The column to group the authors of the given \code{data.source} by
         #'                     [default: "artifact"]
@@ -956,7 +1090,7 @@ ProjectData = R6::R6Class("ProjectData",
         #'         as first column (with name \code{"data.vertices"})
         #'
         #' @seealso ProjectData$group.data.by.column
-        group.authors.by.data.column = function(data.source = c("commits", "mails", "issues"),
+        group.authors.by.data.column = function(data.source = c("commits", "mails", "issues", "talks", "chats","direct.mails"),
                                                 group.column = "artifact") {
             logging::loginfo("Grouping authors by data column.")
 
@@ -976,7 +1110,7 @@ ProjectData = R6::R6Class("ProjectData",
         #' Note: This method is a delegate for \code{ProjectData$group.authors.by.data.column}.
         #' It is deprecated and may be removed in any later version.
         #'
-        #' @param data.source The specified data source. One of \code{"commits"},
+        #' @param data.source The specified data source. One of \code{"commits"}, \code{"talks"},
         #'                    \code{"mails"}, and \code{"issues"}. [default: "commits"]
         #' @param group.column The column to group the authors of the given \code{data.source} by
         #'                     [default: "artifact"]
@@ -986,7 +1120,7 @@ ProjectData = R6::R6Class("ProjectData",
         #'         as first column (with name \code{"data.vertices"})
         #'
         #' @seealso ProjectData$group.data.by.column
-        get.artifact2author = function(data.source = c("commits", "mails", "issues"), group.column) {
+        get.artifact2author = function(data.source = c("commits", "mails", "issues", "talks", "chats","direct.mails"), group.column) {
             logging::logwarn("The method 'ProjectData$get.artifact2author' is deprecated!")
             return(self$group.authors.by.data.column(data.source, group.column))
         },
@@ -999,7 +1133,7 @@ ProjectData = R6::R6Class("ProjectData",
         #' Example: To obtain the artifacts that have been touched by each author,
         #' call \code{group.artifacts.by.data.column("commits", "author.name")}.
         #'
-        #' @param data.source The specified data source. One of \code{"commits"},
+        #' @param data.source The specified data source. One of \code{"commits"}, \code{"talks"},
         #'                    \code{"mails"}, and \code{"issues"}. [default: "commits"]
         #' @param group.column The column to group the artifacts of the given \code{data.source} by
         #'                     [default: "author.name"]
@@ -1010,10 +1144,9 @@ ProjectData = R6::R6Class("ProjectData",
         #'
         #' @return a list mapping each distinct item in \code{group.column} to all corresponding
         #'         data items from \code{data.source}, with \code{artifact.column} duplicated as first
-        #'         column (with name \code{"data.vertices"})
         #'
         #' @seealso ProjectData$group.data.by.column
-        group.artifacts.by.data.column = function(data.source = c("commits", "mails", "issues"),
+        group.artifacts.by.data.column = function(data.source = c("commits", "mails", "issues", "talks", "chats","direct.mails"),
                                                   group.column = "author.name",
                                                   artifact.column = DATASOURCE.TO.ARTIFACT.COLUMN[[data.source]]) {
             logging::loginfo("Grouping artifacts by data column.")
@@ -1039,7 +1172,7 @@ ProjectData = R6::R6Class("ProjectData",
         #' Note: This method is a delegate for \code{ProjectData$group.artifacts.by.data.column}.
         #' It is deprecated and may be removed in any later version.
         #'
-        #' @param data.source The specified data source. One of \code{"commits"},
+        #' @param data.source The specified data source. One of \code{"commits"}, \code{"talks"},
         #'                    \code{"mails"}, and \code{"issues"}. [default: "commits"]
         #' @param group.column The column to group the artifacts of the given \code{data.source} by
         #'                     [default: "author.name"]
@@ -1053,7 +1186,7 @@ ProjectData = R6::R6Class("ProjectData",
         #'         column (with name \code{"data.vertices"})
         #'
         #' @seealso ProjectData$group.data.by.column
-        get.author2artifact = function(data.source = c("commits", "mails", "issues"),
+        get.author2artifact = function(data.source = c("commits", "mails", "issues", "talks", "chats","direct.mails"),
                                                   group.column = "author.name",
                                                   artifact.column = DATASOURCE.TO.ARTIFACT.COLUMN[[data.source]]) {
             logging::logwarn("The method 'ProjectData$get.author2artifact' is deprecated!")
@@ -1067,7 +1200,7 @@ ProjectData = R6::R6Class("ProjectData",
         #' Example: To obtain the authors who touched the same source-code artifact,
         #' call \code{group.data.by.column("commits", "artifact", "author.name")}.
         #'
-        #' @param data.source The specified data source. One of \code{"commits"},
+        #' @param data.source The specified data source. One of \code{"commits"}, \code{"talks"},
         #'                    \code{"mails"}, and \code{"issues"}. [default: "commits"]
         #' @param group.column The column to group the data of the given \code{data.source} by
         #' @param data.column The column that gets duplicated as first column \code{data.vertices}
@@ -1077,7 +1210,7 @@ ProjectData = R6::R6Class("ProjectData",
         #'         column (with name \code{"data.vertices"})
         #'
         #' @seealso get.key.to.value.from.df
-        group.data.by.column = function(data.source = c("commits", "mails", "issues"),
+        group.data.by.column = function(data.source = c("commits", "mails", "issues", "talks", "chats","direct.mails"),
                                         group.column, data.column) {
             logging::loginfo("Grouping artifacts by data column.")
 
@@ -1097,11 +1230,11 @@ ProjectData = R6::R6Class("ProjectData",
         #' data source and the method which is retrieving the data for each data source.
         #'
         #' @param data.source the data source which can be either \code{"commits"}, \code{"mails"},
-        #'                    or \code{"issues"} [default: "commits"]
+        #'                    \code{"talkss"}, or \code{"issues"} [default: "commits"]
         #'
         #' @return a data.frame of unique author names (columns \code{name} and \code{author.email}),
         #'         extracted from the specified data source
-        get.authors.by.data.source = function(data.source = c("commits", "mails", "issues")) {
+        get.authors.by.data.source = function(data.source = c("commits", "mails", "issues", "talks", "chats","direct.mails")) {
 
             data.source = match.arg(data.source)
 

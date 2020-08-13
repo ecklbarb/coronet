@@ -257,6 +257,283 @@ create.empty.mails.list = function() {
     return (create.empty.data.frame(MAILS.LIST.COLUMNS, MAILS.LIST.DATA.TYPES))
 }
 
+## * Talking data -------------------------------------------------------------
+
+## column names of a dataframe containing talks (see file 'talks.list' and function \code{read.talk})
+TALKS.LIST.COLUMNS = c(
+  "author.name", "second.person", # author information
+  "date", "date.offset", "duration", "subject", "talk.id", # meta information
+  "thread", # thread ID
+  "additional.information",
+  "artifact.type" # artifact type
+)
+
+## declare the datatype for each column in the constant 'TALKS.LIST.COLUMNS'
+TALKS.LIST.DATA.TYPES = c(
+  "character", "character",
+  "POSIXct", "numeric", "numeric", "character", "numeric",
+  "character",
+  "character",
+  "character"
+)
+
+#' Read the talk data from the 'talks.list' file.
+#'
+#' @param data.path the path to the talk data
+#'
+#' @return the read mail data
+read.talks = function(data.path) {
+  logging::logdebug("read.talks: starting.")
+
+  ## get file name of commit data
+  file = file.path(data.path, "talks.list")
+
+  ## read data.frame from disk (as expected from save.list.to.file) [can be empty]
+  talk.data = try(read.table(file, header = FALSE, sep = ";", strip.white = TRUE,
+                             encoding = "UTF-8"), silent = FALSE)
+
+  ## handle the case that the list of mails is empty
+  if (inherits(talk.data, "try-error")) {
+    logging::logwarn("There are no talks available for the current environment.")
+    logging::logwarn("Datapath: %s", data.path)
+    return(create.empty.talks.list())
+  }
+
+  ## set proper artifact type for proper vertex attribute 'artifact.type'
+  talk.data["artifact.type"] = "Talk"
+
+  ## set date
+  #date.colum = paste(talk.data[[3]], talk.data[[4]])
+
+  talk.data["date"] = paste(talk.data[[3]], talk.data[[4]])
+  talk.data["date.offset"] = talk.data[[5]]
+  talk.data = talk.data[c(1,2,12,13,6,7,8,9,10,11)]
+
+  colnames(talk.data) = TALKS.LIST.COLUMNS
+
+  ## set pattern for thread ID for better recognition
+  talk.data[["thread"]] = sprintf("<thread-%s>", talk.data[["thread"]])
+  #talk.data[["author.name"]] = sprintf("<user-%s>", talk.data[["author.name"]])
+  #talk.data[["second.person"]] = sprintf("<user-%s>", talk.data[["second.person"]])
+
+  ## remove mails without a proper date as they mess up directed mail-based networks
+  ## this basically only applies for project-level analysis
+  empty.dates = which(talk.data[["date"]] == "" | is.na(talk.data[["date"]]))
+  if (length(empty.dates) > 0)
+    talk.data = talk.data[-empty.dates, ]
+
+  ## convert dates and sort by them
+  talk.data[["date"]] = get.date.from.string(talk.data[["date"]])
+  talk.data = talk.data[order(talk.data[["date"]], decreasing = FALSE), ] # sort!
+
+  ## remove all mails with dates before 1990-01-01 00:00:00
+  break.date = get.date.from.string("1970-01-01 00:00:00")
+  break.to.cut = talk.data[["date"]] < break.date
+  talk.data = talk.data[!break.to.cut, ]
+  if (sum(break.to.cut) > 0) {
+    logging::logwarn(
+      "Removed %s talk(s) after reading data file due to obiously wrong dates (before %s).",
+      sum(break.to.cut), break.date
+    )
+  }
+
+  ## store the talk data
+  logging::logdebug("read.talks: finished.")
+  return(talk.data)
+}
+
+#' Create an empty dataframe which has the same shape as a dataframe containing talks. The dataframe has the column
+#' names and column datatypes defined in \code{TALKS.LIST.COLUMNS} and \code{TALKS.LIST.DATA.TYPES}, respectively.
+#'
+#' @return the empty dataframe
+create.empty.talks.list = function() {
+  return (create.empty.data.frame(TALKS.LIST.COLUMNS, TALKS.LIST.DATA.TYPES))
+}
+
+## * Chat data -------------------------------------------------------------
+
+## column names of a dataframe containing talks (see file 'chatss.list' and function \code{read.talk})
+CHATS.LIST.COLUMNS = c(
+    "author.name", "recipient", # author information
+    "date", "date.offset",  "subject", "number.messages","talk.id", # meta information
+    "thread", # thread ID
+    "artifact.type" # artifact type
+)
+
+## declare the datatype for each column in the constant 'CHATS.LIST.COLUMNS'
+CHATS.LIST.DATA.TYPES = c(
+    "character", "character",
+    "POSIXct", "numeric",  "character", "numeric", "numeric",
+    "character",
+    "character"
+)
+
+#' Read the talk data from the 'chats.list' file.
+#'
+#' @param data.path the path to the chat data
+#'
+#' @return the read chat data
+read.chats = function(data.path) {
+    logging::logdebug("read.chats: starting.")
+
+    ## get file name of chat data
+    file = file.path(data.path, "chats.list")
+
+    ## read data.frame from disk (as expected from save.list.to.file) [can be empty]
+    chat.data = try(read.table(file, header = FALSE, sep = ";", strip.white = TRUE,
+                               encoding = "UTF-8"), silent = FALSE)
+
+    ## handle the case that the list of chats is empty
+    if (inherits(chat.data, "try-error")) {
+        logging::logwarn("There are no talks available for the current environment.")
+        logging::logwarn("Datapath: %s", data.path)
+        return(create.empty.chats.list())
+    }
+
+
+    ## set proper artifact type for proper vertex attribute 'artifact.type'
+    chat.data["artifact.type"] = "Chat"
+
+    ## set date
+    #date.colum = paste(chat.data[[3]], chat.data[[4]])
+
+    chat.data[["date"]] = paste(chat.data[[3]], chat.data[[4]])
+    chat.data[["date.offset"]] = 200 #TODO: add column into data
+    chat.data = chat.data[c(1,2,10,11,5,6,8,7,9)]
+
+    colnames(chat.data) = CHATS.LIST.COLUMNS
+
+    ## set pattern for thread ID for better recognition
+    chat.data[["thread"]] = sprintf("<thread-%s>", chat.data[["thread"]])
+
+
+
+    ## remove mails without a proper date as they mess up directed mail-based networks
+    ## this basically only applies for project-level analysis
+    empty.dates = which(chat.data[["date"]] == "" | is.na(chat.data[["date"]]))
+    if (length(empty.dates) > 0)
+        chat.data = chat.data[-empty.dates, ]
+
+    ## convert dates and sort by them
+    chat.data[["date"]] = get.date.from.string(chat.data[["date"]])
+    chat.data = chat.data[order(chat.data[["date"]], decreasing = FALSE), ] # sort!
+
+    ## remove all mails with dates before 1990-01-01 00:00:00
+    break.date = get.date.from.string("1970-01-01 00:00:00")
+    break.to.cut = chat.data[["date"]] < break.date
+    chat.data = chat.data[!break.to.cut, ]
+    if (sum(break.to.cut) > 0) {
+        logging::logwarn(
+            "Removed %s talk(s) after reading data file due to obiously wrong dates (before %s).",
+            sum(break.to.cut), break.date
+        )
+    }
+
+    ## store the chat data
+    logging::logdebug("read.chats: finished.")
+    return(chat.data)
+}
+
+#' Create an empty dataframe which has the same shape as a dataframe containing talks. The dataframe has the column
+#' names and column datatypes defined in \code{TALKS.LIST.COLUMNS} and \code{TALKS.LIST.DATA.TYPES}, respectively.
+#'
+#' @return the empty dataframe
+create.empty.chats.list = function() {
+    return (create.empty.data.frame(CHATS.LIST.COLUMNS, CHATS.LIST.DATA.TYPES))
+}
+
+
+## * direct mail data -------------------------------------------------------------
+
+## column names of a dataframe containing direct mails (see file 'direct-mails.list' and function \code{read.direct.mails})
+DIRECT.MAILS.LIST.COLUMNS = c(
+    "author.name", "recipient", # author information
+    "date", "date.offset", "subject", "message.id", "sender.email", # meta information
+    "thread", # thread ID
+    "artifact.type" # artifact type
+)
+
+## declare the datatype for each column in the constant 'DIRECT.MAIL.LIST.COLUMNS'
+DIRECT.MAILS.LIST.DATA.TYPES = c(
+    "character", "character",
+    "POSIXct", "numeric",  "character", "numeric", "character",
+    "character",
+    "character"
+)
+
+#' Read the direct mail data from the 'direct-mails.list' file.
+#'
+#' @param data.path the path to the direct mail data
+#'
+#' @return the read direct mail data
+read.direct.mails = function(data.path) {
+    logging::logdebug("read.direct.mails: starting.")
+
+    ## get file name of direct mail data
+    file = file.path(data.path, "direct-mails.list")
+
+    ## read data.frame from disk (as expected from save.list.to.file) [can be empty]
+    direct.mail.data = try(read.table(file, header = FALSE, sep = ";", strip.white = TRUE,
+                               encoding = "UTF-8"), silent = FALSE)
+
+    ## handle the case that the list of direct mails is empty
+    if (inherits(direct.mail.data, "try-error")) {
+        logging::logwarn("There are no talks available for the current environment.")
+        logging::logwarn("Datapath: %s", data.path)
+        return(create.empty.talks.list())
+    }
+
+    ## set proper artifact type for proper vertex attribute 'artifact.type'
+    direct.mail.data["artifact.type"] = "Direct.Mail"
+
+    ## set date
+    #date.colum = paste(talk.data[[3]], talk.data[[4]])
+
+    #talk.data[["date"]] = paste(talk.data[[3]], talk.data[[4]])
+    #talk.data[["date.offset"]] = talk.data[5]
+    #talk.data = talk.data[c(1,2,12,13,6,7,8,9,10,11)]
+
+    direct.mail.data = direct.mail.data[c(1,3,4,5,6,8,2,7,9)]
+
+    colnames(direct.mail.data) = DIRECT.MAILS.LIST.COLUMNS
+
+    ## set pattern for thread ID for better recognition
+    direct.mail.data[["thread"]] = sprintf("<thread-%s>", direct.mail.data[["thread"]])
+
+    ## remove mails without a proper date as they mess up directed mail-based networks
+    ## this basically only applies for project-level analysis
+    empty.dates = which(direct.mail.data[["date"]] == "" | is.na(direct.mail.data[["date"]]))
+    if (length(empty.dates) > 0)
+        direct.mail.data = direct.mail.data[-empty.dates, ]
+
+    ## convert dates and sort by them
+    direct.mail.data[["date"]] = get.date.from.string(direct.mail.data[["date"]])
+    direct.mail.data = direct.mail.data[order(direct.mail.data[["date"]], decreasing = FALSE), ] # sort!
+
+    ## remove all mails with dates before 1990-01-01 00:00:00
+    break.date = get.date.from.string("1970-01-01 00:00:00")
+    break.to.cut = direct.mail.data[["date"]] < break.date
+    direct.mail.data = direct.mail.data[!break.to.cut, ]
+    if (sum(break.to.cut) > 0) {
+        logging::logwarn(
+            "Removed %s talk(s) after reading data file due to obiously wrong dates (before %s).",
+            sum(break.to.cut), break.date
+        )
+    }
+
+    ## store the direct mail data
+    logging::logdebug("read.direct.mails: finished.")
+    return(direct.mail.data)
+}
+
+#' Create an empty dataframe which has the same shape as a dataframe containing talks. The dataframe has the column
+#' names and column datatypes defined in \code{DIRECT.MAIL.LIST.COLUMNS} and \code{DIRECT.MAIL.LIST.DATA.TYPES}, respectively.
+#'
+#' @return the empty dataframe
+create.empty.direct.mails.list = function() {
+    return (create.empty.data.frame(DIRECT.MAILS.LIST.COLUMNS, DIRECT.MAILS.LIST.DATA.TYPES))
+}
+
 ## * Issue data ------------------------------------------------------------
 
 ## column names of a dataframe containing issues (see file 'issues.list' and function \code{read.issues})

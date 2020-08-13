@@ -54,12 +54,15 @@ requireNamespace("lubridate") # for date conversion
 #'
 #' @return the list of RangeData objects, each referring to one time period
 split.data.time.based = function(project.data, time.period = "3 months", bins = NULL,
-                                 number.windows = NULL, split.basis = c("commits", "mails", "issues"),
+                                 number.windows = NULL, split.basis = c("commits", "mails", "issues", "talks", "chats", "direct.mails"),
                                  sliding.window = FALSE) {
     ## get actual raw data
     data = list(
         commits = project.data$get.commits(),
         mails = project.data$get.mails(),
+        direct.mails = project.data$get.direct.mails(),
+        talks = project.data$get.talks(),
+        chats = project.data$get.chats(),
         issues = project.data$get.issues()
     )
     split.data = names(data)

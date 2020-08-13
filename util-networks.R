@@ -72,7 +72,10 @@ RELATION.TO.DATASOURCE = list(
     "cochange"  = "commits",
     "callgraph" = "commits",
     "mail"      = "mails",
-    "issue"     = "issues"
+    "issue"     = "issues",
+    "talk"      = "talks",
+    "chat"      = "chats",
+    "direct.mail" = "direct.mails"
 )
 
 
@@ -110,10 +113,16 @@ NetworkBuilder = R6::R6Class("NetworkBuilder",
         authors.network.mail = NULL, # igraph
         authors.network.cochange = NULL, # igraph
         authors.network.issue = NULL, #igraph
+        authors.network.talk = NULL, #igraph
+        authors.network.chat = NULL, #igraph
+        authors.network.direct.mail = NULL, #igraph
         artifacts.network.cochange = NULL, # igraph
         artifacts.network.callgraph = NULL, # igraph
         artifacts.network.mail = NULL, # igraph
         artifacts.network.issue = NULL, # igraph
+        artifacts.network.talk = NULL, # igraph
+        artifacts.network.chat = NULL, # igraph
+        artifacts.network.direct.mail = NULL, # igraph
 
         ## * * relation-to-vertex-kind mapping -----------------------------
 
@@ -129,6 +138,8 @@ NetworkBuilder = R6::R6Class("NetworkBuilder",
                 cochange  = private$proj.data$get.project.conf.entry("artifact.codeface"),
                 callgraph = private$proj.data$get.project.conf.entry("artifact.codeface"),
                 mail      = "MailThread",
+                direct.mail = "MailThread",
+                talk      = "TalkThread",
                 issue     = "Issue"
             )
 
@@ -288,6 +299,107 @@ NetworkBuilder = R6::R6Class("NetworkBuilder",
 
             return(author.net)
         },
+
+        ##get the talk based author relation as network
+        get.author.network.talk = function() {
+            logging::logdebug("get.author.network.talk: starting.")
+
+            if (!is.null(private$authors.network.talk)) {
+                logging::logdebug("get.author.network.talk: finished. (already existing)")
+                return(private$authors.network.talk)
+            }
+
+            # construct edge list based on talk2author data
+            # author.net.data = construct.edge.list.from.key.value.list(
+            #     private$proj.data$group.authors.by.data.column("talk", "talk.id"),
+            #     network.conf = private$network.conf,
+            #     directed = private$network.conf$get.value("author.directed"),
+            #     respect.temporal.order = private$network.conf$get.value("author.respect.temporal.order")
+            # )
+            talk.data = private$proj.data$get.talks()
+            author.net.data = list()
+            author.net.data[["vertices"]] = data.frame(
+                "name" = unique(c(talk.data$author.name, talk.data$second.person))
+            )
+            author.net.data[["edges"]] = talk.data
+
+            ## construct network from obtained data
+            author.net = construct.network.from.edge.list(
+                author.net.data[["vertices"]],
+                author.net.data[["edges"]],
+                network.conf = private$network.conf,
+                directed = private$network.conf$get.value("author.directed"),
+                available.edge.attributes = private$proj.data$get.data.columns.for.data.source("talks")
+            )
+
+            private$authors.network.talk = author.net
+            logging::logdebug("get.author.network.talk: finished.")
+
+            return(author.net)
+        },
+
+        ##get the direct mal based author relation as network
+        get.author.network.direct.mail = function() {
+            logging::logdebug("get.author.network.direct.mail: starting.")
+
+            if (!is.null(private$authors.network.direct.mail)) {
+                logging::logdebug("get.author.network.direct.mail: finished. (already existing)")
+                return(private$authors.network.direct.mail)
+            }
+
+            direct.mail.data = private$proj.data$get.direct.mails()
+            author.net.data = list()
+            author.net.data[["vertices"]] = data.frame(
+                "name" = unique(c(direct.mail.data$author.name, direct.mail.data$recipient))
+            )
+            author.net.data[["edges"]] = direct.mail.data
+
+            ## construct network from obtained data
+            author.net = construct.network.from.edge.list(
+                author.net.data[["vertices"]],
+                author.net.data[["edges"]],
+                network.conf = private$network.conf,
+                directed = private$network.conf$get.value("author.directed"),
+                available.edge.attributes = private$proj.data$get.data.columns.for.data.source("talks")
+            )
+
+            private$authors.network.direct.mail = author.net
+            logging::logdebug("get.author.network.direct.mail: finished.")
+
+            return(author.net)
+        },
+
+        ##get the chat based author relation as network
+        get.author.network.chat = function() {
+            logging::logdebug("get.author.network.chat: starting.")
+
+            if (!is.null(private$authors.network.chat)) {
+                logging::logdebug("get.author.network.chat: finished. (already existing)")
+                return(private$authors.network.chat)
+            }
+
+            chat.data = private$proj.data$get.chats()
+            author.net.data = list()
+            author.net.data[["vertices"]] = data.frame(
+                "name" = unique(c(chat.data$author.name, chat.data$recipient))
+            )
+            author.net.data[["edges"]] = chat.data
+
+            ## construct network from obtained data
+            author.net = construct.network.from.edge.list(
+                author.net.data[["vertices"]],
+                author.net.data[["edges"]],
+                network.conf = private$network.conf,
+                directed = private$network.conf$get.value("author.directed"),
+                available.edge.attributes = private$proj.data$get.data.columns.for.data.source("talks")
+            )
+
+            private$authors.network.chat = author.net
+            logging::logdebug("get.author.network.chat: finished.")
+
+            return(author.net)
+        },
+
 
         ## * * artifact networks -------------------------------------------
 
@@ -486,6 +598,39 @@ NetworkBuilder = R6::R6Class("NetworkBuilder",
             return(artifacts.net)
         },
 
+        #' Get the talk-based artifact network.
+        #' If it does not already exist build it first.
+        #'
+        #' @return the artifact network with issue relation
+        get.artifact.network.talk = function() {
+
+            logging::logdebug("get.artifact.network.talk: starting.")
+
+            ## do not compute anything more than once
+            if (!is.null(private$artifacts.network.talk)) {
+                logging::logdebug("get.artifact.network.talk: finished. (already existing)")
+                return(private$artifacts.network.talk)
+            }
+
+            ## log warning as we do not have relations among talks right now
+            logging::logwarn(paste(
+                "There exist no actual artifact network with the relation 'talk'.",
+                "Return an edge-less network now."
+            ))
+
+            ## construct edgeless network with mandatory edge and vertex attributes
+            directed = private$network.conf$get.value("artifact.directed")
+            artifacts = private$proj.data$get.artifacts("talks") # issue IDs
+            artifacts.net = create.empty.network(directed = directed, add.attributes = TRUE) +
+                igraph::vertices(artifacts)
+
+            ## store network
+            private$artifacts.network.talk = artifacts.net
+            logging::logdebug("get.artifact.network.talk: finished.")
+
+            return(artifacts.net)
+        },
+
         ## * * bipartite relations ------------------------------------------
 
         #' Get the key-value data for the bipartite relations,
@@ -556,6 +701,7 @@ NetworkBuilder = R6::R6Class("NetworkBuilder",
             private$authors.network.mail = NULL
             private$authors.network.cochange = NULL
             private$authors.network.issue = NULL
+            private$authors.network.talk = NULL
             private$artifacts.network.cochange = NULL
             private$artifacts.network.callgraph = NULL
             private$proj.data = private$proj.data.original
@@ -631,6 +777,9 @@ NetworkBuilder = R6::R6Class("NetworkBuilder",
                     cochange = private$get.author.network.cochange(),
                     mail = private$get.author.network.mail(),
                     issue = private$get.author.network.issue(),
+                    talk = private$get.author.network.talk(),
+                    direct.mail = private$get.author.network.direct.mail(),
+                    chat = private$get.author.network.chat(),
                     stop(sprintf("The author relation '%s' does not exist.", rel))
                     ## TODO construct edge lists here and merge those (inline the private methods)
                 )
@@ -690,6 +839,7 @@ NetworkBuilder = R6::R6Class("NetworkBuilder",
                     callgraph = private$get.artifact.network.callgraph(),
                     mail = private$get.artifact.network.mail(),
                     issue = private$get.artifact.network.issue(),
+                    talk = private$get.artifact.network.talk(),
                     stop(sprintf("The artifact relation '%s' does not exist.", relation))
                 )
 
@@ -1115,7 +1265,7 @@ construct.network.from.edge.list = function(vertices, edge.list, network.conf, d
     logging::loginfo("Construct network from edges.")
 
     ## get unique list of vertices to produce
-    vertices.processed = unique(vertices)
+    vertices.processed =  unique(vertices)
 
     ## if we do not have vertices, return rightaway
     if (is.null(vertices.processed) || length(vertices.processed) == 0) {
@@ -1127,6 +1277,7 @@ construct.network.from.edge.list = function(vertices, edge.list, network.conf, d
         edge.list = create.empty.edge.list()
     }
 
+    #names(edge.list) <- c("from","to", names(edge.list[c(3,4,5,6,7,8,9,10)]))
     ## construct network from edge list if there are vertices
     net = igraph::graph.data.frame(edge.list, directed = directed, vertices = vertices.processed)
 
@@ -1148,6 +1299,7 @@ construct.network.from.edge.list = function(vertices, edge.list, network.conf, d
 
     ## initialize edge weights
     net = igraph::set.edge.attribute(net, "weight", value = 1)
+    #net = igraph::set.edge.attribute(net, "weight", value = net$duration)
 
     ## transform multiple edges to edge weights
     if (network.conf$get.value("simplify")) {
